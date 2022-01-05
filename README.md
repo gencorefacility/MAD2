@@ -52,4 +52,7 @@
 
 #### Run the main.nf script, providing the path to the config, and specifying the `-with-singularity` parameter and the repo name:
 
-`nextflow run main.nf -c <path_to_config> -with-singularity gencorefacility/mad:2`
+```
+module load nextflow/20.11.0-edge
+nextflow run main.nf -c <path_to_config> -with-singularity gencorefacility/mad:2
+```
