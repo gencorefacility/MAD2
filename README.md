@@ -51,6 +51,6 @@ Clone the git repository and edit the following parameters in the nextflow.confi
 
 `process`: Configuration for scheduler. Replace 'slurm' with execution scheduler. Resources required will vary greatly depending on input, however reasonable defaults have been provided by default. 
 
-Run the main.nf script, providing the path to the config, and specifying the -with-singularity parameter along with the docker repo:
+###Run the main.nf script, providing the path to the config, and specifying the -with-singularity parameter along with the docker repo:
 
-`nextflow run main.nf -c <path_to_config> -with-docker gencorefacility/mad:2
+`nextflow run main.nf -c <path_to_config> -with-docker gencorefacility/mad:2`
