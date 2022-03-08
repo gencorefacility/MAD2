@@ -71,6 +71,7 @@ with open(vcf_i, 'r') as vcf, open('out.vcf', 'w') as out:
             vcf_i_data = vcf_i_dict["{}-{}".format(chrom, pos)]
             vcf_2_data = vcf_2_dict["{}-{}".format(chrom, pos)]
             af = round((vcf_i_data['af'] + vcf_2_data['af']) / 2, 6)
+            dp = round((vcf_i_data['dp'] + vcf_2_data['dp']) / 2)
             vcf_i_gt = "{}:{}:{}".format(vcf_i_data['ad'], vcf_i_data['dp'], vcf_i_data['af'])
             vcf_2_gt = "{}:{}:{}".format(vcf_2_data['ad'], vcf_2_data['dp'], vcf_2_data['af'])
-            out.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\tAF={}\t{}\t{}\t{}\n".format(chrom, pos, '.', ref, alt, '.', '.', af, gt_keys, vcf_i_gt, vcf_2_gt))
+            out.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\tAF={};DP={}\t{}\t{}\t{}\n".format(chrom, pos, '.', ref, alt, '.', '.', af, dp, gt_keys, vcf_i_gt, vcf_2_gt))
