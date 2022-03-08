@@ -35,6 +35,21 @@ Channel
     { file -> file.getBaseName() - ~/.bam/ }
     .set { bams_in_ch }
 
+process buildIndex{
+    input:
+    path genome from params.ref
+
+    output:
+    path '*' into index_ch
+
+    script:
+    """
+    bwa index $genome 
+    samtools faidx $genome
+    java -jar \$PICARD_JAR CreateSequenceDictionary R=${genome} O=${genome.baseName}.dict
+    """
+}
+
 process genMutModel{
     output:
     file('MutModel.p') into mut_model_ch
@@ -408,6 +423,8 @@ process bwa {
     publishDir "${params.out}/aligned_reads", mode:'copy'
 	
     input:
+    file genome from ref
+    file index from index_ch
     set pair_id, 
 	file(read_1),
 	file(read_2) from trimmed_ch_bwa
@@ -429,7 +446,7 @@ process bwa {
 	-v 3 -t ${task.cpus} \
 	-Y \
 	-R \"${readGroup}\" \
-	$ref \
+	$genome \
 	$read_1 \
 	$read_2 \
 	> ${pair_id}_aligned_reads.sam
@@ -479,6 +496,7 @@ process getMetrics {
     publishDir "${params.out}/metrics", mode:'copy'
 
     input:
+    path index from index_ch
     set val(sample_id),
 	file(sorted_dedup_reads) from sorted_dedup_ch_for_metrics
 
@@ -494,7 +512,7 @@ process getMetrics {
     """
     java -jar \$PICARD_JAR \
         CollectAlignmentSummaryMetrics \
-	R=${params.ref} \
+	R=${ref} \
         I=${sorted_dedup_reads} \
 	O=${sample_id}_alignment_metrics.txt
     java -jar \$PICARD_JAR \
@@ -560,9 +578,6 @@ process varscan {
     //file("${sample_id}_varscan_${name}.vcf") into vs_reps
     set val("${sample_id}"),
 	val("${sample_id}_varscan_${name}") into vs_rep_ids
-
-    when:
-    !sample_id.contains("SynCon_Control08_rep1") && !sample_id.contains("SynCon_Control06_rep1")
 
     script:
     name = vs_config[0]
@@ -702,6 +717,8 @@ process mutect2{
     publishDir "${params.out}/mutect2", mode:'copy'
 
     input:
+    file genome from ref
+    file index from index_ch
     set val(sample_id),
         file(preprocessed_bam) from mutect2_ch
     each m2_config from params.m2_configs
@@ -726,9 +743,9 @@ process mutect2{
     name = m2_config[0]
     m2_params = m2_config[1]
     """
-    gatk Mutect2 -R $ref $m2_params -I $preprocessed_bam -O ${sample_id}_mutect2_${name}_unfiltered.vcf
-    gatk FilterMutectCalls -R $ref -V ${sample_id}_mutect2_${name}_unfiltered.vcf -O tmp.vcf
-    gatk SelectVariants -R $ref -V tmp.vcf --exclude-filtered -O ${sample_id}_mutect2_${name}_filtered.vcf
+    gatk Mutect2 -R $genome $m2_params -I $preprocessed_bam -O ${sample_id}_mutect2_${name}_unfiltered.vcf
+    gatk FilterMutectCalls -R $genome -V ${sample_id}_mutect2_${name}_unfiltered.vcf -O tmp.vcf
+    gatk SelectVariants -R $genome -V tmp.vcf --exclude-filtered -O ${sample_id}_mutect2_${name}_filtered.vcf
     """
 }
 
@@ -801,6 +818,8 @@ process haplotypeCaller {
     publishDir "${params.out}/haplotypecaller", mode:'copy'
 
     input:
+    file genome from ref
+    file index from index_ch
     set val(sample_id), 
 	file(preprocessed_bam) from sorted_dedup_bam_ch
     each hc_config from params.hc_configs
@@ -819,11 +838,11 @@ process haplotypeCaller {
     hc_params = hc_config[1]
     """
     gatk HaplotypeCaller $hc_params \
-	-R $ref \
+	-R $genome \
 	-I $preprocessed_bam \
 	-O ${sample_id}_raw_variants.vcf
     gatk SelectVariants \
-        -R $ref \
+        -R $genome \
         -V ${sample_id}_raw_variants.vcf \
         -select-type SNP \
         -O ${sample_id}_hc_${name}.vcf
@@ -888,7 +907,6 @@ process snpEff {
     #   {filtered_snps} > {pair_id}_filtered_snps.ann.vcf
     """
 }
-
 
 process make_bw{
     publishDir "${params.out}/bigwig", mode:'copy'
