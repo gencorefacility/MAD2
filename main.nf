@@ -1156,6 +1156,8 @@ process analyze_af_report {
 }
 
 process qualimap{
+    publishDir "${params.out}/qualimap", mode:'copy'
+ 
     container 'docker://pegi3s/qualimap'
 
     input:
