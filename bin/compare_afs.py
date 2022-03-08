@@ -112,7 +112,7 @@ def get_data_workflow(vcf, x):
     # Use this AF for the _mx_ VCFs because this is the 
     # average AF, what we want in this case (alternatively, 
     # compute it using AD and DP from both samples). 
-    use_af_tool_list = ['ivar', 'timo', 'cliquesnv', 'lofreq', '_mx_']
+    use_af_tool_list = ['cliquesnv', 'lofreq', '_mx_']
     if any(x in vcf.filename.decode() for x in use_af_tool_list):
         info_af = var.info["AF"]
         if type(info_af) is tuple:
