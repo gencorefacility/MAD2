@@ -561,12 +561,39 @@ process timo{
 
 }
 
+process test_pileup{
+
+    //publishDir "${params.out}/failed", mode:'copy', pattern: '*.txt'
+
+    input:
+    set val(sample_id),
+        file(bam) from varscan_ch
+
+    output:
+    file ("${sample_id}.txt") optional true into failed_ch
+    set val(sample_id),
+        file("${bam.baseName}_passed.bam") optional true into pileup_passed_ch
+
+    script:
+    """
+    x=(\$(samtools mpileup  -f $ref $bam | wc -l))
+
+    if [ \$x -eq 0 ]
+    then
+	echo $sample_id " FAILED pileup check"
+	echo $sample_id > ${sample_id}.txt
+    else
+	mv $bam ${bam.baseName}_passed.bam
+    fi
+    """
+}
+
 process varscan {
     publishDir "${params.out}/varscan", mode:'copy'
 
     input:
     set val(sample_id),
-        file(preprocessed_bam) from varscan_ch
+        file(preprocessed_bam) from pileup_passed_ch
     each vs_config from params.vs_configs
 
     output:
@@ -1136,6 +1163,8 @@ process qc {
  */
 //parse_metrics_output.collectFile(name: "${workflow.runName}_report.csv", keepHeader: true, storeDir: "${params.out}/reports")
 make_af_csv_output.collectFile(name: "${params.fcid}_${workflow.runName}_af_data.csv", keepHeader: true, storeDir: "${params.out}/reports").tap{af_report_in}
+
+failed_ch.collectFile(name: "failed.txt", keepHeader: false, storeDir: "${params.out}/reports")
 
 process analyze_af_report {
     publishDir "${params.out}/reports", mode:'copy'	
