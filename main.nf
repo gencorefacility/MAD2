@@ -538,10 +538,9 @@ process timo{
     set val(sample_id),
         file("${sample_id}_timo_${name}.vcf") \
         into tims_vcf_ch, tims_bcftools_stats_ch
-    //file("${sample_id}_timo_${name}.vcf") into timo_reps
     set val("${sample_id}"),
 	val("${sample_id}_timo_${name}") into timo_rep_ids
-    file '*' into tims_out_ch
+    file ("${sample_id}_*") into tims_out_ch
 
     script:
     name = timo_config[0]
@@ -557,6 +556,8 @@ process timo{
     ## them into a single VCF file
     parse_tims_output.py $ref ${sample_id}
     mv ${sample_id}.vcf ${sample_id}_timo_${name}.vcf
+    mkdir ${sample_id}_${name}
+    mv FILES/fullvarlist/*.csv ${sample_id}_${name}/.
     """
 
 }
