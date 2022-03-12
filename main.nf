@@ -556,6 +556,8 @@ process timo{
     ## them into a single VCF file
     parse_tims_output.py $ref ${sample_id}
     mv ${sample_id}.vcf ${sample_id}_timo_${name}.vcf
+    parse_tims_output.py $ref ${sample_id} true
+    mv ${sample_id}.vcf ${sample_id}_timo_${name}_no-binom-check.vcf
     mkdir ${sample_id}_${name}
     mv FILES/fullvarlist/*.csv ${sample_id}_${name}/.
     """
