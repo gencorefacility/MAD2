@@ -78,7 +78,7 @@ with open(out, 'w') as vcf:
 
                 if do_write:
                     info = "AF={}".format(af)
-                    f = "GT:AD:DP:GQ:PL 1:{}:{}:1:1".format(ad, dp)
+                    f = "GT:AD:DP:GQ:PL\t1:{}:{}:1:1".format(ad, dp)
                     vcf.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n"
                         .format(chrom, pos, '.', ref, alt, '.', '.', info, f))
 
