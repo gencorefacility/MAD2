@@ -394,16 +394,17 @@ process star{
 }
 
 process addReadGroups {
-    publishDir "${params.out}/star_readgroups_added", mode:'copy'
+    //publishDir "${params.out}/star_readgroups_added", mode:'copy'
 
     input:
     set val(sample_id),
         file(sam) from star_aligned_reads_ch
+	.mix(bams_in_ch)
 
     output:
     set val(sample_id),
         file("${sample_id}_star.Aligned.out.RG.Sorted.bam") \
-        into star_rg_added_ch
+        into rg_added_ch
 
     script:
     """
@@ -465,8 +466,7 @@ process markDuplicatesSpark  {
     input:
     set val(sample_id), 
 	file(bam) from aligned_reads_ch
-	.mix(star_rg_added_ch)
-	.mix(bams_in_ch)
+	.mix(rg_added_ch)
 
     output:
     set val(sample_id),
@@ -481,6 +481,7 @@ process markDuplicatesSpark  {
     set val(sample_id),
 	file("${sample_id}_dedup_metrics.txt") into dedup_qc_ch
     val(sample_id) into pair_id_ch
+    set val(sample_id), file(bam) into genomecov_ch
 
     script:
     """
@@ -490,6 +491,38 @@ process markDuplicatesSpark  {
 	-M ${sample_id}_dedup_metrics.txt \
 	-O ${sample_id}_sorted_dedup.bam
     """ 
+}
+
+process genomecov{
+    input:
+    set val(sample_id),
+	file(bam) from genomecov_ch
+
+    output:
+    file("${sample_id}.tsv") into cov_plot_ch
+
+    script:
+    """
+    bedtools genomecov -d -ibam $bam > ${sample_id}.tsv
+    sed -i "s/^/${sample_id}\t/" ${sample_id}.tsv
+    """
+}
+
+process cov_plot{
+    publishDir "${params.out}/reports", mode:'copy'
+
+    input:
+    file(tsv) from cov_plot_ch.collect()
+
+    output:
+    file("*") into cov_plot_out_ch
+
+    script:
+    """
+    cat *.tsv > cov_data.tsv
+    sed -i '1i name\tsegment\tntpos\ttotalcount' cov_data.tsv
+    cov_plots.R ${params.fcid}-${workflow.runName}
+    """
 }
 
 process getMetrics {
@@ -539,7 +572,18 @@ process timo{
         file("${sample_id}_timo_${name}.vcf") \
         into tims_vcf_ch, tims_bcftools_stats_ch
     set val("${sample_id}"),
-	val("${sample_id}_timo_${name}") into timo_rep_ids
+	val("${sample_id}_timo_${name}") \
+	into timo_rep_ids
+
+    file("${sample_id}_timo_${name}_no-binom-check.vcf") \
+        into tims_bzip_tabix_vcf_ch_2, timo_reps_2
+    set val(sample_id),
+        file("${sample_id}_timo_${name}_no-binom-check.vcf") \
+        into tims_vcf_ch_2, tims_bcftools_stats_ch_2
+    set val("${sample_id}"),
+        val("${sample_id}_timo_${name}_no-binom-check") \
+	into timo_rep_ids_2
+
     file ("${sample_id}_*") into tims_out_ch
 
     script:
@@ -614,7 +658,7 @@ process varscan {
     samtools_params = vs_config[1]
     vs_params = vs_config[2]
     """
-    samtools mpileup $samtools_params -f $ref $preprocessed_bam |\
+    samtools mpileup $samtools_params -f $ref --max-depth 0 $preprocessed_bam |\
 	java -jar \$VARSCAN_JAR mpileup2snp $vs_params \
 	--output-vcf 1 > ${sample_id}_varscan_${name}.vcf
     """
@@ -773,9 +817,21 @@ process mutect2{
     name = m2_config[0]
     m2_params = m2_config[1]
     """
-    gatk Mutect2 -R $genome $m2_params -I $preprocessed_bam -O ${sample_id}_mutect2_${name}_unfiltered.vcf
-    gatk FilterMutectCalls -R $genome -V ${sample_id}_mutect2_${name}_unfiltered.vcf -O tmp.vcf
-    gatk SelectVariants -R $genome -V tmp.vcf --exclude-filtered -O ${sample_id}_mutect2_${name}_filtered.vcf
+    gatk Mutect2 \
+	-R $genome \
+	$m2_params \
+	--max-reads-per-alignment-start 0 \
+	-I $preprocessed_bam \
+	-O ${sample_id}_mutect2_${name}_unfiltered.vcf
+    gatk FilterMutectCalls \
+	-R $genome \
+	-V ${sample_id}_mutect2_${name}_unfiltered.vcf \
+	-O tmp.vcf
+    gatk SelectVariants \
+	-R $genome \
+	-V tmp.vcf \
+	--exclude-filtered \
+	-O ${sample_id}_mutect2_${name}_filtered.vcf
     """
 }
 
@@ -868,6 +924,7 @@ process haplotypeCaller {
     hc_params = hc_config[1]
     """
     gatk HaplotypeCaller $hc_params \
+	--max-reads-per-alignment-start 0 \
 	-R $genome \
 	-I $preprocessed_bam \
 	-O ${sample_id}_raw_variants.vcf
@@ -995,6 +1052,7 @@ process bzip_tabix_vcf{
 	.mix(mutect2_bzip_tabix_vcf_ch)
 	.mix(freebayes_bzip_tabix_vcf_ch)
 	.mix(tims_bzip_tabix_vcf_ch)
+	.mix(tims_bzip_tabix_vcf_ch_2)
 	.mix(varscan_bzip_tabix_vcf_ch)
 	.mix(ivar_bzip_tabix_vcf_ch)
         .mix(lofreq_bzip_tabix_vcf_ch)
@@ -1047,6 +1105,7 @@ process compare_replicates{
 
     input:
     file(vcf) from timo_reps
+	.mix(timo_reps_2)
 	.mix(vs_reps)
 	.mix(freebayes_reps)
 	.mix(m2_reps)
@@ -1056,6 +1115,7 @@ process compare_replicates{
 	.mix(ivar_reps)
 	.collect()
     set val(id), val(filename) from timo_rep_ids
+	.mix(timo_rep_ids_2)
 	.mix(vs_rep_ids)
 	.mix(freebayes_rep_ids)
         .mix(m2_rep_ids)
@@ -1103,6 +1163,7 @@ process compare_afs{
 	.mix(m2_vcf_ch)
 	.mix(m2_unfiltered_vcf_ch)
 	.mix(tims_vcf_ch)
+	.mix(tims_vcf_ch_2)
 	.mix(hc_vcf_ch)
 	.mix(varscan_vcf_ch)
         .mix(lofreq_vcf_ch)
@@ -1215,6 +1276,7 @@ process bcftools_stats{
         .mix(m2_bcftools_stats_ch)
         .mix(m2_unfiltered_bcftools_stats_ch)
         .mix(tims_bcftools_stats_ch)
+	.mix(tims_bcftools_stats_ch_2)
         .mix(hc_bcftools_stats_ch)
         .mix(varscan_bcftools_stats_ch)
         .mix(lofreq_bcftools_stats_ch)
