@@ -460,13 +460,38 @@ process bwa {
     """
 }
 
+process check_for_mapped_reads{
+
+    input:
+    set val(sample_id),
+        file(bam) from aligned_reads_ch
+        .mix(rg_added_ch)
+
+    output:
+    file ("${sample_id}.txt") optional true into no_mapped_reads_ch
+    set val(sample_id),
+        file("${bam.baseName}_mapped.bam") optional true into mapped_reads_ch
+
+    script:
+    """
+    x=(\$(samtools view -F 4 $bam | wc -l))
+
+    if [ \$x -eq 0 ]
+    then
+        echo $sample_id " FAILED mapped reads check"
+        echo $sample_id > ${sample_id}.txt
+    else
+        mv $bam ${bam.baseName}_mapped.bam
+    fi
+    """
+}
+
 process markDuplicatesSpark  {
     publishDir "${params.out}/sorted", mode:'copy'
 
     input:
     set val(sample_id), 
-	file(bam) from aligned_reads_ch
-	.mix(rg_added_ch)
+	file(bam) from mapped_reads_ch
 
     output:
     set val(sample_id),
@@ -520,7 +545,7 @@ process cov_plot{
     script:
     """
     cat *.tsv > cov_data.tsv
-    sed -i '1i name\tsegment\tntpos\ttotalcount' cov_data.tsv
+    sed -i '1i name\tsegment\tntpos\ttotalcount' ${params.fcid}_${workflow.runName}_cov_data.tsv
     cov_plots.R ${params.fcid}-${workflow.runName}
     """
 }
@@ -1174,6 +1199,7 @@ process compare_afs{
 
     output:
     file("${workflow_vcf.baseName}_af_report.csv") into make_af_csv_output
+    file("${workflow_vcf.baseName}_af_report_snp_count.txt") into af_report_snp_counts
 
     script:
     golden_vcf = pair_id.replaceFirst(/_mx_/, '_m1_')
@@ -1227,8 +1253,9 @@ process qc {
  */
 //parse_metrics_output.collectFile(name: "${workflow.runName}_report.csv", keepHeader: true, storeDir: "${params.out}/reports")
 make_af_csv_output.collectFile(name: "${params.fcid}_${workflow.runName}_af_data.csv", keepHeader: true, storeDir: "${params.out}/reports").tap{af_report_in}
-
-failed_ch.collectFile(name: "failed.txt", keepHeader: false, storeDir: "${params.out}/reports")
+af_report_snp_counts.collectFile(name: "${params.fcid}_${workflow.runName}_af_report_snp_counts.txt", keepHeader: false, storeDir: "${params.out}/reports")
+failed_ch.collectFile(name: "failed_varscan.txt", keepHeader: false, storeDir: "${params.out}/reports")
+no_mapped_reads_ch.collectFile(name: "no_mapped_reads.txt", keepHeader: false, storeDir: "${params.out}/reports")
 
 process analyze_af_report {
     publishDir "${params.out}/reports", mode:'copy'	
