@@ -35,7 +35,6 @@ def main():
 
     for x in false_negatives:
         data = get_data_golden(vcf_golden, x)
-        #print(data)
         results.append({
             'sample_id': sample_id, 
             'chrom': x[0],
@@ -49,7 +48,6 @@ def main():
 
     for x in false_positives:
         data = get_data_workflow(vcf_workflow, x)
-        print("DATA: ", data)
         results.append({
             'sample_id': sample_id, 
             'chrom': x[0],
@@ -79,6 +77,8 @@ def main():
         w = csv.DictWriter(f, fieldnames = results[0].keys())
         w.writeheader()
         w.writerows(results)
+    with open("{}_snp_count.txt".format(in_arg.out), 'w') as f:
+            f.write("{}\t{} ".format(in_arg.out, len(true_positives) + len(false_negatives)))
 
 def get_input_args():
     parser = argparse.ArgumentParser()
@@ -100,7 +100,11 @@ def get_data_workflow(vcf, x):
     # assumes only 1 variant at this position, takes first one
     chrom = x[0]
     pos = x[1]
-    var = list(vcf.fetch(chrom, pos - 1, pos))[0]
+    variants = list(vcf.fetch(chrom, pos - 1, pos))
+    for v in variants:
+        if v.pos == pos:
+            var = v
+            break
     # Set dp = None as default
     dp = None
     #for sample in var.samples:
