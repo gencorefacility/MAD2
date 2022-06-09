@@ -60,7 +60,12 @@ def get_af(af, golden_snp_index=0):
             # use seed to get the same value for 
             # 'random' AFs between replicates
             np.random.seed(seed + golden_snp_index)
-            x = np.random.poisson(10)
+            x = np.random.poisson(3)
+            # np.random.possion() will always generate the same
+            # number given the seed, so if x = 0, need to 
+            # edit the seed
+            if x == 0:
+                golden_snp_index+=1
         return x / 100
     elif af == 'pcr_mut':
         x = 0
@@ -76,9 +81,10 @@ def get_af(af, golden_snp_index=0):
             sys.exit()
         return float(af)
 
-contigs_added = False   
 with open(in_vcf, 'r') as vcf, open(out_prefix+"_golden.vcf", "w") as golden_vcf, open(out_prefix+'.vcf', 'w') as out_vcf:
+    contigs_added = False
     golden_snp_index = 0
+    chrom_snp_list = []
     for line in vcf:
         if line.startswith('#'):
             if line.startswith("#CHROM\tPOS"):
@@ -100,6 +106,10 @@ with open(in_vcf, 'r') as vcf, open(out_prefix+"_golden.vcf", "w") as golden_vcf
             ref = columns[3]
             alt = columns[4]
             chrom = columns[0]
+            chrom_pos = "{}-{}".format(chrom, pos)
+            if chrom_pos in chrom_snp_list:
+                continue
+            chrom_snp_list.append(chrom_pos)
                         
             # if this snp is in the golden snps, set the desired AF
             # else, it is a 'PCR artifact', assign the AF as such
