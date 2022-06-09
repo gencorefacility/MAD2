@@ -6,7 +6,7 @@
 
 `params.bams`: Path to aligned reads in bamformat. Set as `"[!*]"` if none or when simulating reads. 
 
-`params.ref`: Path to reference genome fasta. BWA index, fasta index, and picard reference dictionary must exist in the same dir.
+`params.ref`: Path to reference genome fasta.
 
 `params.adapters`: Path to adapter file. Can be empty when simulating reads. 
 
