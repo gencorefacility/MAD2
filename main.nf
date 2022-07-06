@@ -476,7 +476,7 @@ process check_for_mapped_reads{
     """
     x=(\$(samtools view -F 4 $bam | wc -l))
 
-    if [ \$x -eq 0 ]
+    if [ \$x -lt 2 ]
     then
         echo $sample_id " FAILED mapped reads check"
         echo $sample_id > ${sample_id}.txt
@@ -545,8 +545,9 @@ process cov_plot{
     script:
     """
     cat *.tsv > cov_data.tsv
-    sed -i '1i name\tsegment\tntpos\ttotalcount' ${params.fcid}_${workflow.runName}_cov_data.tsv
+    sed -i '1i name\tsegment\tntpos\ttotalcount' cov_data.tsv
     cov_plots.R ${params.fcid}-${workflow.runName}
+    mv cov_data.tsv ${params.fcid}_${workflow.runName}_cov_data.tsv
     """
 }
 
