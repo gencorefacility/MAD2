@@ -27,7 +27,7 @@ readsim_model_bam = file(params.readsim_model_bam)
 // This enables support for CGSB sequence data file naming format
 Channel
     .fromFilePairs( params.reads, size: -1)
-    { file -> file.getBaseName() - ~/((_read[12])|(_n0[12]))/ - ~/.f*q/ }
+    { file -> file.getBaseName() - ~/((_read[12])|(_n0[12])|(_R[12]))/ - ~/.f*q/ }
     .set { read_pairs_ch }
 
 Channel
