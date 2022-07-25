@@ -4,7 +4,7 @@
 
 `params.reads`: Path to input reads in fastq format. Set as `"[!*]"` if none or when simulating reads. 
 
-`params.bams`: Path to aligned reads in bamformat. Set as `"[!*]"` if none or when simulating reads. 
+`params.bams`: Path to aligned reads in bam format. Set as `"[!*]"` if none or when simulating reads. 
 
 `params.ref`: Path to reference genome fasta.
 
@@ -17,8 +17,6 @@
 `params.fcid`: Unique name for this analysis (alphanumeric, no spaces)
 
 `params.outdir`: Output path
-
-`params.read_pair_regex`: `"_read[12]"` if simulating reads. `"_n0[12]"` if using gencore data.
 
 `params.do_sim_reads`: `true` if simulating reads, else `false`. 
 
